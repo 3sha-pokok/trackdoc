@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TrackDoc – Submit Google Document</title>
+    <link rel="stylesheet" href="/css/submit.css">
+</head>
+<body>
+
+<!-- Submit Form Container -->
+<div class="container">
+    <div class="card">
+        <h2>Submit Google Document</h2>
+        <p>Paste your Google Docs URL below. TrackDoc will extract version history and generate an activity report.</p>
+
+        <!-- SINGLE form only -->
+        <form method="POST" action="/docs/process">
+            <input 
+                type="text"
+                name="docUrl"
+                placeholder="https://docs.google.com/document/d/..."
+                required
+            >
+
+            <button type="submit" class="submit-btn">
+                Fetch Activity Logs
+            </button>
+        </form>
+
+        <!-- Information message for Google Docs URL validation -->
+        <p class="note">Make sure the document is accessible by your Google account.</p>
+    </div>
+</div>
+
+<script src="/js/theme.js"></script>
+
+</body>
+</html>

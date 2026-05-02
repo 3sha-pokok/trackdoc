@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TrackDoc – Revision Intelligence</title>
+  <link rel="stylesheet" href="/css/dashboard.css" />
+</head>
+
+<body class="td-body">
+
+<script>
+  function exportPDF() {
+    window.open("/docs/export/pdf", "_blank");
+  }
+</script>
+
+<header class="td-topbar">
+  <div class="td-brand">
+    <img src="/images/trackdoc-logo.png" class="td-logo" />
+    <div class="td-brand-text">
+      <div class="td-name">TrackDoc</div>
+      <div class="td-sub">Document Forensics</div>
+    </div>
+  </div>
+
+  <div class="td-top-actions">
+    <div class="td-user">
+      <div class="td-user-label">Signed in</div>
+      <div class="td-user-value"><%= userEmail %></div>
+    </div>
+    <a href="/auth/logout" class="td-btn td-btn-danger">Logout</a>
+  </div>
+</header>
+
+<main class="td-main">
+
+  <%
+    const DIFF_OK = !!(typeof diffSupported !== "undefined" && diffSupported);
+
+    // guards
+    const crit = (typeof criticality !== "undefined") ? criticality : null;
+    const fx   = (typeof forensics !== "undefined") ? forensics : null;
+
+    // Contributors list: A-Z, include Unknown last, dedupe
+    const normalizeName = (n) => {
+      const s = String(n || "").trim();
+      if (!s) return "Unknown";
+      if (s.toLowerCase() === "unknown") return "Unknown";
+      return s;
+    };
+
+    // Activity Feed: A-Z, Unknown last
+    const groupedEntries = Object.entries(grouped || {}).sort(([a],[b]) => {
+      const ax = normalizeName(a);
+      const bx = normalizeName(b);
+      const aU = ax.toLowerCase() === "unknown";
+      const bU = bx.toLowerCase() === "unknown";
+      if (aU && !bU) return 1;
+      if (!aU && bU) return -1;
+      return ax.localeCompare(bx, undefined, { sensitivity: "base" });
+    });
+
+    const contributorNames = Array.from(
+      new Set(Object.keys(grouped || {}).map(normalizeName))
+    ).sort((a, b) => {
+      const aU = a.toLowerCase() === "unknown";
+      const bU = b.toLowerCase() === "unknown";
+      if (aU && !bU) return 1;
+      if (!aU && bU) return -1;
+      return a.localeCompare(b, undefined, { sensitivity: "base" });
+    });
+
+    const contributorsCountUI = contributorNames.length;
+
+    // Events: newest-first
+    const sortEventsNewestFirst = (arr) =>
+      (arr || []).slice().sort((x, y) => {
+        const tx = x.whenISO ? new Date(x.whenISO).getTime() : (x.when ? new Date(x.when).getTime() : 0);
+        const ty = y.whenISO ? new Date(y.whenISO).getTime() : (y.when ? new Date(y.when).getTime() : 0);
+        return ty - tx;
+      });
+
+    // Strong dark-theme colors (CSS vars)
+    const levelColor = (lvl) => {
+      const L = String(lvl || "").toLowerCase();
+      if (L === "low") return "var(--lvl-low)";
+      if (L === "medium") return "var(--lvl-medium)";
+      if (L === "high") return "var(--lvl-high)";
+      if (L === "critical") return "var(--lvl-critical)";
+      return "rgba(234,240,255,.55)";
+    };
+
+    const riskScoreUI  = Number.isFinite(+fx?.riskScore) ? +fx.riskScore : 0;
+    const riskLevelUI  = fx?.riskLevel || "Low";
+    const riskColorUI  = levelColor(riskLevelUI);
+
+    const critScoreUI  = Number.isFinite(+crit?.criticalityScore) ? +crit.criticalityScore : 0;
+    const critLevelUI  = crit?.criticalityLevel || "Low";
+    const critColorUI  = levelColor(critLevelUI);
+
+    // Per-user breakdown: alphabetical, Unknown last
+    const perUserSorted = (fx?.behaviour || [])
+      .map(b => ({
+        user: normalizeName(b.user),
+        actions: Number.isFinite(+b.actions) ? +b.actions : 0,
+        percentage: Number.isFinite(+b.percentage) ? +b.percentage : 0
+      }))
+      .sort((x, y) => {
+        const xU = x.user.toLowerCase() === "unknown";
+        const yU = y.user.toLowerCase() === "unknown";
+        if (xU && !yU) return 1;
+        if (!xU && yU) return -1;
+        return x.user.localeCompare(y.user, undefined, { sensitivity: "base" });
+      });
+
+    // Pie chart (CSS conic-gradient) with striking colors
+    const totalForPie =
+      perUserSorted.reduce((s, b) => s + (b.actions || 0), 0) ||
+      (summary?.totalActions ?? 0) || 1;
+
+    const pieColors = [
+      "#00E5FF",
+      "#FF2D95",
+      "#FFD400",
+      "#7CFF00",
+      "#9B5CFF",
+      "#FF6A00",
+      "#00FF85"
+    ];
+
+    let cursor = 0;
+    const segments = [];
+    for (let i = 0; i < perUserSorted.length; i++) {
+      const b = perUserSorted[i];
+      const pct = ((b.actions || 0) / totalForPie) * 100;
+
+      const val = (i === perUserSorted.length - 1)
+        ? Math.max(0, 100 - cursor)
+        : Math.min(100, Math.max(0, +pct.toFixed(2)));
+
+      const end = Math.min(100, cursor + val);
+      segments.push(`${pieColors[i % pieColors.length]} ${cursor}% ${end}%`);
+      cursor = end;
+    }
+
+    const pieGradient = segments.length
+      ? `conic-gradient(${segments.join(",")})`
+      : "conic-gradient(rgba(255,255,255,.08) 0 100%)";
+  %>
+
+  <!-- LEFT -->
+  <section class="td-left td-card">
+    <div class="td-card-head">
+      <h2 class="td-h2">Activity Feed</h2>
+      <span class="td-pill"><%= (summary?.totalActions ?? 0) %> events</span>
+    </div>
+
+    <div class="td-accordion">
+      <% groupedEntries.forEach(([user, rawItems]) => { %>
+        <%
+          const items = sortEventsNewestFirst(rawItems);
+          const u = normalizeName(user);
+          const avatar = (u && u[0] ? u[0] : "?").toUpperCase();
+        %>
+
+        <details class="td-details">
+          <summary class="td-summary">
+            <div class="td-summary-left">
+              <div class="td-avatar"><%= avatar %></div>
+              <div>
+                <div class="td-who-name"><%= u %></div>
+                <div class="td-who-meta"><%= (items || []).length %> actions</div>
+              </div>
+            </div>
+          </summary>
+
+          <div class="td-events">
+            <% (items || []).forEach((ev, idx) => { %>
+              <div
+                class="td-event"
+                <% if (DIFF_OK) { %>
+                  onclick="showWhatChanged('<%= ev.revisionId %>', '<%= (items[idx+1] && items[idx+1].revisionId) ? items[idx+1].revisionId : 'initial' %>')"
+                  style="cursor:pointer;"
+                <% } else { %>
+                  style="cursor:default;"
+                <% } %>
+              >
+                <div class="td-event-time" data-iso="<%= ev.whenISO || '' %>"></div>
+                <div class="td-event-what">
+                  <span class="td-action"><%= ev.action || "Edited document" %></span>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        </details>
+      <% }) %>
+    </div>
+
+    <% if (DIFF_OK) { %>
+      <div class="td-sep"></div>
+      <div class="td-card-head">
+        <h2 class="td-h2">What Changed</h2>
+        <span class="td-pill" id="diff-status">Select an event</span>
+      </div>
+      <div
+        id="diff-display"
+        style="min-height:100px; padding:12px; border-radius:12px; background:rgba(255,255,255,.04); border:1px solid rgba(234,240,255,.10); overflow:auto;"
+      ></div>
+    <% } %>
+
+    <div class="td-actions">
+      <button class="td-btn td-btn-primary" onclick="exportPDF()">Export PDF</button>
+    </div>
+  </section>
+
+  <!-- CENTER -->
+  <section class="td-center td-card">
+    <div class="td-card-head">
+      <h2 class="td-h2">Document View</h2>
+    </div>
+
+    <div class="td-iframe-wrap">
+      <iframe src="<%= docEmbedUrl %>" class="td-iframe"></iframe>
+    </div>
+
+    <div class="td-doc-links">
+      <a href="<%= docOpenUrl %>" target="_blank" rel="noopener noreferrer">Open in Google Docs →</a>
+    </div>
+  </section>
+
+  <!-- RIGHT -->
+  <aside class="td-right td-card">
+    <div class="td-card-head">
+      <h2 class="td-h2">Summary</h2>
+    </div>
+
+    <div class="td-summary-grid">
+
+      <div class="td-kv">
+        <span class="td-k">Total Actions</span>
+        <span class="td-v"><%= (summary?.totalActions ?? 0) %></span>
+      </div>
+
+      <!-- Contributors -->
+      <details class="td-kv-details" style="grid-column:1 / -1;">
+        <summary class="td-kv-summary">
+          <span class="td-k">Contributors</span>
+          <span class="td-v"><%= contributorsCountUI %></span>
+        </summary>
+
+        <div class="td-mini-table td-mini-table-compact">
+          <% contributorNames.forEach(name => { %>
+            <div class="td-mini-row">
+              <div class="td-mini-user" style="text-align:left;">
+                <%= name.toLowerCase() === "unknown" ? "Unknown" : name %>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </details>
+
+    </div>
+
+    <!-- Document Criticality -->
+    <% if (crit) { %>
+      <div class="td-sep"></div>
+      <h3 class="td-h2">Document Criticality</h3>
+
+      <div class="td-kv td-anom">
+        <span class="td-k">Criticality</span>
+        <span class="td-v"><%= critLevelUI %> (<%= critScoreUI %>/100)</span>
+      </div>
+
+      <div class="td-bar" style="--w:<%= Math.max(0, Math.min(100, critScoreUI)) %>%; --c:<%= critColorUI %>;">
+        <div></div>
+      </div>
+      <div class="td-scale"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
+
+      <% if (crit.factors && crit.factors.length) { %>
+        <div class="td-sep"></div>
+        <h3 class="td-h2">Criticality Factors</h3>
+        <div class="td-mini-table">
+          <% crit.factors.forEach(f => { %>
+            <div class="td-mini-row">
+              <div class="td-mini-user"><%= f %></div>
+            </div>
+          <% } ) %>
+        </div>
+      <% } %>
+    <% } %>
+
+    <!-- Behavioural Forensics -->
+    <% if (fx) { %>
+      <div class="td-sep"></div>
+
+      <h3 class="td-h2">Behavioural Forensics</h3>
+
+      <div class="td-kv">
+        <span class="td-k">Primary Editor</span>
+        <span class="td-v"><%= normalizeName(fx.primaryEditor) %></span>
+      </div>
+
+      <div class="td-kv">
+        <span class="td-k">Primary Share</span>
+        <span class="td-v"><%= Math.round((fx.primaryShare || 0) * 100) %>%</span>
+      </div>
+
+      <div class="td-kv">
+        <span class="td-k">Unknown Actions</span>
+        <span class="td-v"><%= fx.unknownActions ?? 0 %></span>
+      </div>
+
+      <div class="td-kv">
+        <span class="td-k">Unknown Share</span>
+        <span class="td-v"><%= Math.round((fx.unknownShare || 0) * 100) %>%</span>
+      </div>
+
+      <div class="td-kv td-anom">
+        <span class="td-k">Risk Level</span>
+        <span class="td-v"><%= riskLevelUI %> (<%= riskScoreUI %>/100)</span>
+      </div>
+
+      <div class="td-bar" style="--w:<%= Math.max(0, Math.min(100, riskScoreUI)) %>%; --c:<%= riskColorUI %>;">
+        <div></div>
+      </div>
+      <div class="td-scale"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
+
+      <!-- Per-User Breakdown -->
+      <% if (perUserSorted && perUserSorted.length) { %>
+        <div class="td-sep"></div>
+
+        <div class="td-peruser-head">
+          <div>
+            <h3 class="td-h2">Per-User Breakdown</h3>
+            <div class="td-peruser-sub">Click a user to expand</div>
+          </div>
+          <div class="td-pie" style="background:<%= pieGradient %>"></div>
+        </div>
+
+        <div class="td-mini-table">
+          <% perUserSorted.forEach((b, idx) => { %>
+            <details class="td-mini-details">
+              <summary class="td-mini-row td-mini-summary">
+                <div class="td-mini-user"><%= b.user %></div>
+                <div class="td-mini-meta">
+                  <span><%= b.actions %> actions</span>
+                  <span>• <%= b.percentage %>%</span>
+                </div>
+              </summary>
+
+              <div class="td-mini-expand">
+                <div class="td-kv">
+                  <span class="td-k">Actions</span>
+                  <span class="td-v"><%= b.actions %></span>
+                </div>
+
+                <div class="td-kv">
+                  <span class="td-k">Share</span>
+                  <span class="td-v"><%= ((b.actions / totalForPie) * 100).toFixed(1) %>%</span>
+                </div>
+
+                <div class="td-legend-row">
+                  <span class="td-legend-dot" style="background:<%= pieColors[idx % pieColors.length] %>"></span>
+                  <span>Pie color</span>
+                </div>
+              </div>
+            </details>
+          <% }) %>
+        </div>
+      <% } %>
+
+    <% } %>
+  </aside>
+
+</main>
+
+<input type="hidden" id="file-id" value="<%= documentId %>">
+
+<script>
+  (function formatTimes(){
+    const tz = "Asia/Kuala_Lumpur";
+    const nodes = document.querySelectorAll("[data-iso]");
+    nodes.forEach((el) => {
+      const iso = el.getAttribute("data-iso");
+      if (!iso) return;
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return;
+      el.textContent = d.toLocaleString(undefined, { timeZone: tz });
+    });
+  })();
+
+  const DIFF_SUPPORTED = <%= DIFF_OK ? "true" : "false" %>;
+
+  async function showWhatChanged(currentId, previousId) {
+    if (!DIFF_SUPPORTED) return;
+
+    const status = document.getElementById("diff-status");
+    const displayArea = document.getElementById("diff-display");
+    const fileIdEl = document.getElementById("file-id");
+    const fileId = fileIdEl ? fileIdEl.value : "";
+
+    if (!fileId || !displayArea || !currentId) return;
+
+    if (status) status.innerText = "Loading…";
+    displayArea.innerHTML = "";
+
+    const prevParam = previousId ? previousId : "initial";
+
+    const response = await fetch(`/docs/diff/${fileId}/${currentId}/${prevParam}`);
+    const data = await response.json();
+
+    displayArea.innerHTML = "";
+
+    if (!data.success) {
+      if (status) status.innerText = "Unavailable";
+      const msg = document.createElement("div");
+      msg.style.color = "rgba(234,240,255,.72)";
+      msg.innerText = data.reason || data.error || "Diff not available.";
+      displayArea.appendChild(msg);
+      return;
+    }
+
+    if (status) status.innerText = "Loaded";
+
+    data.changes.forEach((part) => {
+      const span = document.createElement("span");
+
+      if (part.added) {
+        span.style.background = "rgba(34,197,94,.20)";
+        span.style.color = "rgba(234,240,255,1)";
+        span.style.padding = "0 4px";
+        span.style.borderRadius = "6px";
+      } else if (part.removed) {
+        span.style.background = "rgba(239,68,68,.20)";
+        span.style.color = "rgba(234,240,255,1)";
+        span.style.textDecoration = "line-through";
+        span.style.padding = "0 4px";
+        span.style.borderRadius = "6px";
+      }
+
+      span.innerText = part.value;
+      displayArea.appendChild(span);
+    });
+  }
+</script>
+
+</body>
+</html>

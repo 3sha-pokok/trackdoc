@@ -1,0 +1,28 @@
+/* Default Theme (Dark Mode) */
+:root {
+    --bg: #0A0F1F;
+    --bg-secondary: #111827;
+    --text: #FFFFFF;
+    --text-secondary: #CBD5E1;
+    --card-bg: #111827;
+    --border: rgba(255,255,255,0.12);
+    --button-bg: rgba(255,255,255,0.15);
+    --button-bg-hover: rgba(255,255,255,0.25);
+}
+
+/* Light Mode */
+body.light-mode {
+    --bg: #F8FAFC;
+    --bg-secondary: #FFFFFF;
+    --text: #0F172A;
+    --text-secondary: #475569;
+    --card-bg: #FFFFFF;
+    --border: #E2E8F0;
+    --button-bg: #E2E8F0;
+    --button-bg-hover: #CBD5E1;
+}
+
+/* Smooth transition */
+* {
+    transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}

@@ -1,0 +1,21 @@
+{
+  "name": "trackdoc",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node app.js"
+  },
+  "dependencies": {
+    "cookie-session": "^2.0.0",
+    "dif": "^0.0.6",
+    "diff": "^5.2.2",
+    "diff-match-patch": "^1.0.5",
+    "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
+    "express": "^4.22.1",
+    "googleapis": "^171.4.0",
+    "mammoth": "^1.11.0",
+    "node-fetch": "^3.3.2",
+    "pdfkit": "^0.17.2"
+  }
+}

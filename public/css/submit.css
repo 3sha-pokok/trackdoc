@@ -1,0 +1,78 @@
+body {
+    background-color: #0f172a;  /* Dark background for the page */
+    color: #ffffff;  /* White text color for readability */
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.card {
+    background: #1e293b;  /* Dark card background */
+    width: 480px;
+    padding: 40px;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+    text-align: center;
+    color: #ffffff;
+}
+
+.card h2 {
+    font-size: 28px;
+    color: #ffffff;  /* Title color */
+    margin-bottom: 16px;
+}
+
+.card p {
+    color: #d1d5db;  /* Lighter gray for text */
+    font-size: 15px;
+    margin-top: 8px;
+    margin-bottom: 20px;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid #374151;  /* Darker border */
+    font-size: 15px;
+    margin-top: 10px;
+    background-color: #111827;  /* Dark input field background */
+    color: #ffffff;
+    transition: 0.2s;
+}
+
+input[type="text"]:focus {
+    outline: none;
+    border-color: #3b82f6;  /* Light blue color for input focus */
+}
+
+.submit-btn {
+    width: 100%;
+    margin-top: 25px;
+    padding: 14px;
+    background: #3b82f6;  /* Bright blue button */
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    transition: 0.2s;
+}
+
+.submit-btn:hover {
+    background: #2563eb;  /* Slightly darker blue on hover */
+}
+
+.note {
+    font-size: 12px;
+    color: #9ca3af;  /* Lighter gray for the note */
+    margin-top: 15px;
+}
